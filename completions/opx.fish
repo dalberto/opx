@@ -58,6 +58,8 @@ complete -c opx -n '__opx_using snippet; and __opx_npos 1' -a '(__opx_complete a
 complete -c opx -n '__opx_using snippet; and not __opx_npos 1' -a '(__opx_complete vault-items)'
 complete -c opx -n '__opx_using snippet' -s k -l keychain -x -a '(__opx_complete keychain)' -d 'Keychain service'
 complete -c opx -n '__opx_using snippet' -s c -l copy -d 'Copy instead of printing'
+complete -c opx -n '__opx_using snippet' -l env -d 'Env-file format for op run'
+complete -c opx -n '__opx_using snippet' -s o -l out -r -F -d 'Write the env file here (implies --env)'
 
 # sa
 complete -c opx -n '__opx_using sa' -s v -l vault -x -a '(__opx_complete grants)' -d 'Grant VAULT[:PERMS] (repeatable)'

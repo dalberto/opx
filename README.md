@@ -50,6 +50,8 @@ OP_SERVICE_ACCOUNT_TOKEN="$(security find-generic-password -s my-agents-op-sa -w
   op read 'op://my-agents/slack-webhook/credential'
 ```
 
+For more than a handful of secrets, `opx snippet VAULT --env -o .env.op` writes an env file of `op://` references (no secrets; safe to commit) and tells the agent to run commands under `op run --env-file .env.op -- <command>`. Secrets arrive as environment variables and are masked if printed.
+
 No prompts: `security` created the Keychain item, so `security` reads it silently. Any process running as you can read it, so the protection comes from the token's scope (read-only, one vault, expiring, revocable, audited), not from Keychain ACLs.
 
 Rotate before expiry with `opx agent my-agents -r`, then revoke the old service account in the 1Password web app (Developer → Service Accounts). The CLI can't list or revoke service accounts.

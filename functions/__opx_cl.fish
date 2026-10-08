@@ -3,7 +3,7 @@ function __opx_cl --description "Parse the opx commandline for completions: __op
     # opt F...  print the value of the last of the given flags (e.g. -v --vault)
     # The single list of value-taking flags lives here.
     set -l value_flags -v --vault -f --field --category -a --as -k --keychain \
-        -s --save-vault -e --expires -i --item -m --move -S --store --to --from
+        -s --save-vault -e --expires -i --item -m --move -S --store --to --from -o --out
     set -l tokens (commandline -xpc)[3..]
     set -l mode $argv[1]
     set -l want $argv[2..]

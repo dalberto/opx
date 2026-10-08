@@ -134,7 +134,7 @@ examples:
 see also: opx snippet, opx run, opx token, opx sa"
 
         case snippet
-            set text "usage: opx snippet [VAULT [ITEM...]] [-k SERVICE] [-c]
+            set text "usage: opx snippet [VAULT [ITEM...]] [--env] [-o FILE] [-k SERVICE] [-c]
 abbr: opsnippet
 
 Print markdown instructions an agent can follow to read VAULT's secrets
@@ -142,8 +142,16 @@ headlessly: token from the Keychain, one op:// reference per item. Items are
 read as the service account, so only what the agent can access is listed;
 items without a concealed value or with '/' in the name are skipped.
 
+--env switches to an env file of op:// references (VAR=op://...; no secrets,
+safe to commit) plus an `op run --env-file` command, so secrets reach the
+agent's command as environment variables and never appear in its output.
+Variable names come from item titles, minus a leading vault name.
+
 With no VAULT, pick from vaults that have a Keychain token.
 
+      --env                env-file format (better for many secrets)
+  -o, --out FILE           with --env: write the env file to FILE (default
+                           output embeds it, for the agent to save as VAULT.env)
   -k, --keychain SERVICE   Keychain service (default: VAULT-op-sa)
   -c, --copy               copy instead of printing
   -h, --help               show this help
@@ -151,6 +159,7 @@ With no VAULT, pick from vaults that have a Keychain token.
 examples:
   opx snippet -c
   opx snippet my-agents slack-webhook
+  opx snippet my-agents --env -o .env.op -c
 
 see also: opx agent, opx token, opx run"
 
