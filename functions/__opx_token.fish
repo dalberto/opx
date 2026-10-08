@@ -1,21 +1,14 @@
 function __opx_token --description "Print a service account token stored in the macOS Keychain"
-    argparse --max-args 1 h/help -- $argv; or return
-    if set -q _flag_help; or test (count $argv) -ne 1
-        echo "usage: opx token SERVICE
-
-Print the 1Password service account token stored in Keychain SERVICE
-(as stored by opx sa --keychain / opx agent). First read from a new binary
-prompts once (\"Always Allow\").
-
-examples:
-  set -x OP_SERVICE_ACCOUNT_TOKEN (opx token my-agents-op-sa)
-
-see also: opx run, opx sa, opx agent, opx snippet" >&2
-        set -q _flag_help; and return 0; or return 2
+    argparse --name "opx token" --max-args 1 h/help -- $argv; or return 2
+    set -q _flag_help; and __opx_usage token; and return 0
+    set -l service $argv[1]
+    if test -z "$service"
+        __opx_can_pick; or begin; __opx_usage token --error; return 2; end
+        set service (__opx_list keychain | __opx_pick token "Keychain service" | cut -f1); or return 1
     end
-    security find-generic-password -s $argv[1] -w
+    security find-generic-password -s $service -w 2>/dev/null
     or begin
-        echo "opx token: no Keychain item '$argv[1]'" >&2
+        __opx_err token "no Keychain token '$service'"
         return 1
     end
 end

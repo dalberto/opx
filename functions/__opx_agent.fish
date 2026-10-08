@@ -1,38 +1,22 @@
 function __opx_agent --description "Set up a vault + read-only service account (token in Keychain) for agents"
-    argparse --max-args 1 h/help 'm/move=+' 'e/expires=' 'k/keychain=' r/replace y/yes n/dry-run -- $argv
-    or return
-    if set -q _flag_help; or test (count $argv) -ne 1
-        echo "usage: opx agent VAULT [-m ITEM]... [-e DURATION] [options]
+    argparse --name "opx agent" --max-args 1 h/help 'm/move=+' 'e/expires=' 'k/keychain=' r/replace y/yes n/dry-run -- $argv
+    or return 2
+    set -q _flag_help; and __opx_usage agent; and return 0
 
-One step agent-secrets setup, composed from the op* helpers:
-  1. opx vault VAULT                 create the vault if missing
-  2. opx mv ITEM... -t VAULT         move -m items into it
-  3. opx sa VAULT-op-sa -v VAULT:read -S both
-                                   mint a read-only service account; token
-                                   saved to Keychain + 1Password (Dev)
-  4. opx get ... --as SERVICE        verify a headless read works
-  5. opx snippet VAULT               print instructions to hand an agent
-
-  -m, --move ITEM          item to move into VAULT (repeatable)
-  -e, --expires DURATION   token lifetime (default: 30d)
-  -k, --keychain SERVICE   Keychain service / account name (default: VAULT-op-sa)
-  -r, --replace            rotate: mint a new token, overwrite stored copies
-  -y, --yes                skip confirmation
-  -n, --dry-run            show the plan; change nothing
-  -h, --help               show this help
-
-Rotation: rerun with -r before expiry; revoke the old service account in the
-1Password web app (Developer > Service Accounts).
-
-examples:
-  opx agent my-agents -m slack-webhook
-  opx agent my-agents -r          # rotate
-
-see also: opx snippet, opx run, opx token, opx sa" >&2
-        set -q _flag_help; and return 0; or return 2
-    end
     set -l vault $argv[1]
-    set -l service $vault-op-sa
+    if test -z "$vault"
+        __opx_can_pick; or begin; __opx_usage agent --error; return 2; end
+        set -l pick (__opx_list vaults | string match -v -r '^(Personal|Private)\t' \
+            | __opx_pick --new vault "pick a vault, or type a new name to create it")
+        or return 1
+        set -l cols (string split \t -- $pick[1])
+        set vault (test -n "$cols[1]"; and echo $cols[1]; or echo $cols[2])
+    end
+    if string match -q -r '^(Personal|Private)$' -- $vault
+        __opx_err agent "service accounts can't access $vault"
+        return 1
+    end
+    set -l service (__opx_service $vault)
     set -q _flag_keychain; and set service $_flag_keychain
     set -l expires 30d
     set -q _flag_expires; and set expires $_flag_expires
@@ -43,29 +27,35 @@ see also: opx snippet, opx run, opx token, opx sa" >&2
     set -q _flag_replace; and set -a pass -r
 
     if set -q _flag_dry_run
-        echo "dry run:" >&2
-        op vault get $vault >/dev/null 2>&1; and echo "  vault $vault exists" >&2; or echo "  would create vault $vault" >&2
-        test (count $_flag_move) -gt 0; and echo "  would move: "(string join ', ' $_flag_move) >&2
+        op vault get $vault >/dev/null 2>&1
+        and __opx_err agent "dry run: vault $vault exists"
+        or __opx_err agent "dry run: would create vault $vault"
+        test (count $_flag_move) -gt 0; and __opx_err agent "dry run: would move "(string join ', ' $_flag_move)
     else
-        opx vault $vault; or return
+        __opx_vault $vault; or return 1
         if test (count $_flag_move) -gt 0
-            opx mv $_flag_move -t $vault; or return
+            __opx_mv $_flag_move --to $vault; or return 1
         end
     end
 
-    opx sa $service -v "$vault:read" -e $expires -S both -k $service $pass; or return
+    __opx_sa $service -v "$vault:read" -e $expires -S both -k $service $pass; or return 1
     set -q _flag_dry_run; and return 0
 
-    set -l first (op item list --vault $vault --format json | jq -r '.[0].title // empty')
+    set -l token (security find-generic-password -s $service -w)
+    set -l first (env OP_SERVICE_ACCOUNT_TOKEN=$token op item list --vault $vault --format json | jq -r '.[0].id // empty')
+    or begin
+        __opx_err agent "VERIFY FAILED: can't list $vault as $service"
+        return 1
+    end
     if test -z "$first"
-        echo "opx agent: $vault is empty; skipping verification" >&2
-    else if opx get $first -v $vault --as $service >/dev/null
-        echo "opx agent: verified headless read of $vault/$first as $service" >&2
+        __opx_err agent "$vault is empty; verified access only"
+    else if env OP_SERVICE_ACCOUNT_TOKEN=$token op item get $first --vault $vault >/dev/null
+        __opx_err agent "verified headless read of $vault as $service"
     else
-        echo "opx agent: VERIFY FAILED reading $vault/$first as $service" >&2
+        __opx_err agent "VERIFY FAILED reading $vault as $service"
         return 1
     end
 
     echo >&2
-    opx snippet $vault -k $service
+    __opx_snippet $vault -k $service
 end

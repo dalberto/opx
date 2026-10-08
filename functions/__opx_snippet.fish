@@ -1,44 +1,17 @@
 function __opx_snippet --description "Print agent instructions for reading a vault's secrets via its service account"
-    argparse h/help 'k/keychain=' c/copy -- $argv; or return
-    if set -q _flag_help
-        echo "usage: opx snippet [VAULT [ITEM...]] [-k SERVICE] [-c]
-
-Print a markdown snippet an agent can follow to read secrets from VAULT
-headlessly: token from Keychain SERVICE, one op:// reference per item.
-With no VAULT, pick from vaults that have a Keychain token (set up by
-opx agent). With no ITEM, includes every readable item in VAULT.
-
-Items are read as the service account itself, so the snippet only lists
-what the agent can actually access. Items without a concealed value, or
-with '/' in the name, are skipped with a warning.
-
-  -k, --keychain SERVICE   Keychain service holding the token (default: VAULT-op-sa)
-  -c, --copy               copy instead of printing
-
-examples:
-  opx snippet -c                         # pick a vault, copy instructions
-  opx snippet my-agents -c
-
-see also: opx agent, opx token, opx run" >&2
-        return 0
-    end
+    argparse --name "opx snippet" h/help 'k/keychain=' c/copy -- $argv; or return 2
+    set -q _flag_help; and __opx_usage snippet; and return 0
 
     set -l vault $argv[1]
     if test -z "$vault"
-        set -l agent_vaults (__opx_keychain_services | string replace -r -f -- '-op-sa$' '')
-        if test (count $agent_vaults) -eq 0
-            echo "opx snippet: no agent vaults found (no *-op-sa Keychain tokens); run opx agent VAULT first" >&2
+        __opx_can_pick; or begin; __opx_usage snippet --error; return 2; end
+        set vault (__opx_list agent-vaults | __opx_pick vault "agent vaults (Keychain tokens)" | cut -f1)
+        or begin
+            __opx_list agent-vaults >/dev/null; or __opx_err snippet "no agent vaults yet; run opx agent VAULT"
             return 1
         end
-        if not isatty stdin; or not command -q fzf
-            echo "opx snippet: pass a VAULT; agent vaults: "(string join ', ' $agent_vaults) >&2
-            return 2
-        end
-        set vault (printf '%s\n' $agent_vaults | fzf --select-1 --height=40% --reverse \
-            --prompt="vault> " --header="agent vaults (Keychain tokens)")
-        or return 1
     end
-    set -l service $vault-op-sa
+    set -l service (__opx_service $vault)
     set -q _flag_keychain; and set service $_flag_keychain
     set -l names $argv[2..]
 
@@ -46,15 +19,15 @@ see also: opx agent, opx token, opx run" >&2
     # exactly what the agent will be able to read.
     set -lx OP_SERVICE_ACCOUNT_TOKEN (security find-generic-password -s $service -w 2>/dev/null)
     if test -z "$OP_SERVICE_ACCOUNT_TOKEN"
-        echo "opx snippet: no Keychain token '$service'; run opx agent $vault first (or pass -k SERVICE)" >&2
+        __opx_err snippet "no Keychain token '$service'; run opx agent $vault first (or pass -k SERVICE)"
         return 1
     end
     set -l rows (op item list --vault $vault --format json \
         | jq -c --args '[.[] | select(($ARGS.positional | length) == 0 or (.title | IN($ARGS.positional[])))]' $names \
         | op item get - --format json \
-        | jq -r '"\(.title)\t\([.fields[]? | select(.type == "CONCEALED" and (.value // "") != "")] | first | .label // "")"')
+        | jq -r (__opx_jq)'"\(.title)\t\(readable | first | .label // "")"')
     or begin
-        echo "opx snippet: can't read $vault as $service (expired or revoked token?)" >&2
+        __opx_err snippet "can't read $vault as $service (expired or revoked token?)"
         return 1
     end
 
@@ -64,20 +37,20 @@ see also: opx agent, opx token, opx run" >&2
         set -l kv (string split \t -- $row)
         set -a found $kv[1]
         if string match -q '*/*' -- $kv[1]
-            echo "opx snippet: skipped '$kv[1]': '/' in name can't be addressed by op://" >&2
+            __opx_err snippet "skipped '$kv[1]': '/' in name can't be addressed by op://"
         else if test -z "$kv[2]"
-            echo "opx snippet: skipped '$kv[1]': no concealed field with a value" >&2
+            __opx_err snippet "skipped '$kv[1]': no concealed field with a value"
         else if string match -q '*/*' -- $kv[2]
-            echo "opx snippet: skipped '$kv[1]': field '$kv[2]' has '/' in its name" >&2
+            __opx_err snippet "skipped '$kv[1]': field '$kv[2]' has '/' in its name"
         else
             set -a refs "op read 'op://$vault/$kv[1]/$kv[2]'"
         end
     end
     for n in $names
-        contains -- $n $found; or echo "opx snippet: '$n' not found in $vault (or not readable as $service)" >&2
+        contains -- $n $found; or __opx_err snippet "'$n' not found in $vault (or not readable as $service)"
     end
     if test (count $refs) -eq 0
-        echo "opx snippet: nothing usable in $vault" >&2
+        __opx_err snippet "nothing usable in $vault"
         return 1
     end
 
@@ -103,7 +76,7 @@ Access is read-only to the `$vault` vault; ask the user to add new secrets there
 
     if set -q _flag_copy
         printf '%s\n' $out | pbcopy
-        echo "opx snippet: copied" >&2
+        __opx_err snippet copied
     else
         printf '%s\n' $out
     end

@@ -1,43 +1,49 @@
 function __opx_mv --description "Move 1Password items to another vault"
-    argparse h/help 't/to=' 'f/from=' -- $argv; or return
-    if set -q _flag_help; or test (count $argv) -lt 1; or not set -q _flag_to
-        echo "usage: opx mv ITEM... -t VAULT [-f FROM]
+    argparse --name "opx mv" h/help 'to=' 'from=' -- $argv; or return 2
+    set -q _flag_help; and __opx_usage mv; and return 0
 
-Move items into VAULT. Without -f, each ITEM is located by exact title across
-all vaults and must match exactly one item. Items already in VAULT are
-skipped. Moving assigns a new item ID; the original goes to Recently Deleted.
-
-  -t, --to VAULT     destination vault
-  -f, --from VAULT   source vault (default: search all vaults)
-
-examples:
-  opx mv slack-webhook -t my-agents
-
-see also: opx vault, opx agent" >&2
-        set -q _flag_help; and return 0; or return 2
-    end
+    # Resolve to "id<TAB>title<TAB>vault" rows.
+    set -l rows
     set -l rc 0
-    for name in $argv
-        set -l matches (op item list --format json \
-            | jq -r --arg n $name --arg f "$_flag_from" \
-                '.[] | select(.title == $n and ($f == "" or .vault.name == $f or .vault.id == $f))
-                 | "\(.id)\t\(.vault.name)"')
-        if test (count $matches) -ne 1
-            set -l where
-            test (count $matches) -gt 1; and set where " in:" (string split -f2 \t -- $matches) "(use -f VAULT)"
-            echo "opx mv: '$name' matched "(count $matches)" items"(string join ' ' -- '' $where) >&2
-            set rc 1
+    if test (count $argv) -eq 0
+        __opx_can_pick; or begin; __opx_usage mv --error; return 2; end
+        set rows (__opx_list items $_flag_from \
+            | __opx_pick --multi --hide-key items "Tab: select · Enter: confirm")
+        or return 1
+    else
+        set -l all (__opx_list items $_flag_from)
+        for name in $argv
+            set -l matches (printf '%s\n' $all | awk -F'\t' -v n="$name" '$2 == n')
+            if test (count $matches) -eq 1
+                set -a rows $matches
+            else if test (count $matches) -eq 0
+                __opx_err mv "'$name' not found"(set -q _flag_from; and echo " in $_flag_from"; or echo "")
+                set rc 1
+            else
+                __opx_err mv "'$name' is in several vaults ("(printf '%s\n' $matches | cut -f3 | string join ', ')"); use --from"
+                set rc 1
+            end
+        end
+    end
+    test (count $rows) -gt 0; or return 1
+
+    set -l to "$_flag_to"
+    if test -z "$to"
+        __opx_can_pick; or begin; __opx_usage mv --error; return 2; end
+        set to (__opx_list vaults | __opx_pick vault "move "(count $rows)" item(s) to" | cut -f1)
+        or return 1
+    end
+
+    for row in $rows
+        set -l c (string split \t -- $row)
+        if test "$c[3]" = "$to"
+            __opx_err mv "$c[2] already in $to"
             continue
         end
-        set -l id (string split -f1 \t -- $matches)
-        set -l from (string split -f2 \t -- $matches)
-        if test "$from" = "$_flag_to"
-            echo "opx mv: $name already in $_flag_to" >&2
-            continue
-        end
-        op item move $id --current-vault $from --destination-vault $_flag_to >/dev/null
-        and echo "opx mv: $from/$name → $_flag_to/$name" >&2
+        op item move $c[1] --current-vault $c[3] --destination-vault $to >/dev/null
+        and __opx_err mv "$c[3]/$c[2] → $to/$c[2]"
         or set rc 1
     end
+    __opx_list --flush
     return $rc
 end

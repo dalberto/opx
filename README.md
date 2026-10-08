@@ -22,9 +22,17 @@ opx token    print an SA token from the Keychain             abbr: opsatoken
 opx run      run a command as a service account              abbr: opsarun
 ```
 
-`opx help COMMAND` (or `opx COMMAND -h`) for details. Every command has tab completion: vaults, items, fields, `VAULT:PERMS` grants, Keychain services. Abbreviations expand at the prompt only; scripts should call `opx COMMAND`.
+`opx help COMMAND` (or `opx COMMAND -h`) for details.
 
-Defaults: vault `Dev`; new items are API Credentials; the field is the item's first concealed field.
+Conventions, same for every command:
+
+- **Pickers**: leave out a required argument in an interactive shell and fzf picks it (items across all vaults, vaults, fields, Keychain tokens). `opx set` and `opx agent` also accept a typed new name. Scripts and agents never see a picker; they get a usage error (exit 2).
+- **Flags**: `-v` vault, `-f` field, `-c` copy, `-k` Keychain service, `-e` expiry, `-r` replace, `-y` yes, `-n` dry run, `-h` help. `opx mv` uses `--to`/`--from`; `opx set` uses `--category`.
+- **Defaults**: vault `$OPX_VAULT`, else `Dev`; new items are API Credentials; the field is the item's first concealed field.
+- **Output**: values go to stdout, everything else to stderr as `opx CMD: …`. `-h` prints to stdout.
+- **Completion**: everything tab-completes (vaults, items, fields, `VAULT:PERMS` grants, Keychain services). Lists are cached for 5 minutes and refreshed after writes.
+
+Abbreviations expand at the prompt only; scripts should call `opx COMMAND`.
 
 ## Agent secrets
 
