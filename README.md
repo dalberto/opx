@@ -1,0 +1,61 @@
+# opx
+
+1Password helpers for [fish](https://fishshell.com): masked secret entry, quick reads, and one-step setup of read-only service accounts so headless agents can read secrets without biometric prompts.
+
+```fish
+fisher install dalberto/opx
+```
+
+Requires the [1Password CLI](https://developer.1password.com/docs/cli/) (`op`), `jq`, and macOS (Keychain, `pbcopy`). `fzf` is optional, for interactive vault picking.
+
+## Commands
+
+```
+opx set      store a masked secret in an item field          abbr: opset
+opx get      read a secret (optionally as a service account) abbr: opget
+opx mv       move items between vaults                       abbr: opmv
+opx vault    create a vault if missing                       abbr: opvault
+opx agent    one-step: vault + read-only SA + Keychain token abbr: opagent
+opx snippet  print agent instructions for a vault            abbr: opsnippet
+opx sa       mint a service account token, save it           abbr: opsa, op-service-token
+opx token    print an SA token from the Keychain             abbr: opsatoken
+opx run      run a command as a service account              abbr: opsarun
+```
+
+`opx help COMMAND` (or `opx COMMAND -h`) for details. Every command has tab completion: vaults, items, fields, `VAULT:PERMS` grants, Keychain services. Abbreviations expand at the prompt only; scripts should call `opx COMMAND`.
+
+Defaults: vault `Dev`; new items are API Credentials; the field is the item's first concealed field.
+
+## Agent secrets
+
+Agents can't answer Touch ID prompts. A [service account](https://developer.1password.com/docs/service-accounts/) token makes `op` skip the desktop app entirely.
+
+```fish
+opx agent my-agents -m slack-webhook   # vault + move item + read-only SA (30d) + verify
+opx snippet -c                         # pick an agent vault, copy instructions for the agent
+```
+
+`opx agent` creates the vault if missing, moves items into it, mints a service account with read-only access to that vault only, stores the token in the macOS Keychain (service `VAULT-op-sa`) plus a backup item in `Dev`, verifies a headless read, and prints the snippet. The agent then runs:
+
+```sh
+OP_SERVICE_ACCOUNT_TOKEN="$(security find-generic-password -s my-agents-op-sa -w)" \
+  op read 'op://my-agents/slack-webhook/credential'
+```
+
+No prompts: `security` created the Keychain item, so `security` reads it silently. Any process running as you can read it, so the protection comes from the token's scope (read-only, one vault, expiring, revocable, audited), not from Keychain ACLs.
+
+Rotate before expiry with `opx agent my-agents -r`, then revoke the old service account in the 1Password web app (Developer → Service Accounts). The CLI can't list or revoke service accounts.
+
+Secrets never pass through argv or shell history: values travel to `op` as JSON on stdin and to the Keychain via `security -i`.
+
+## Development
+
+Edit, push, then `fisher update dalberto/opx`. To try local changes without pushing:
+
+```fish
+set -p fish_function_path (pwd)/functions; set -p fish_complete_path (pwd)/completions
+```
+
+## License
+
+MIT
