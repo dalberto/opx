@@ -1,5 +1,6 @@
 function __opx_agent --description "Set up a vault + read-only service account (token in Keychain) for agents"
-    argparse --name "opx agent" --max-args 1 h/help 'm/move=+' 'e/expires=' 'k/keychain=' r/replace y/yes n/dry-run -- $argv
+    argparse --name "opx agent" --max-args 1 h/help 'm/move=+' 'e/expires=' 'k/keychain=' \
+        's/save-vault=' 'i/item=' c/copy r/replace y/yes n/dry-run -- $argv
     or return 2
     set -q _flag_help; and __opx_usage agent; and return 0
 
@@ -21,7 +22,40 @@ function __opx_agent --description "Set up a vault + read-only service account (
     set -l expires 30d
     set -q _flag_expires; and set expires $_flag_expires
 
-    set -l pass
+    set -l save_vault (__opx_default_vault)
+    set -q _flag_save_vault; and set save_vault $_flag_save_vault
+    set -l item $service
+    set -q _flag_item; and set item $_flag_item
+
+    # Already set up? Decide up front instead of failing halfway through.
+    if not set -q _flag_replace
+        set -l found
+        security find-generic-password -s $service >/dev/null 2>&1; and set -a found "Keychain $service"
+        op item get $item --vault $save_vault >/dev/null 2>&1; and set -a found "1Password $save_vault/$item"
+        if test (count $found) -gt 0
+            set -l what "$vault is already set up ("(string join ', ' $found)")"
+            if not __opx_can_pick
+                __opx_err agent "$what; use -r to rotate, or opx snippet $vault"
+                return 1
+            end
+            set -l action (printf '%s\t%s\n' rotate 'mint a new token, overwrite stored copies' \
+                snippet 'print agent instructions' cancel 'do nothing' \
+                | __opx_pick action $what | cut -f1)
+            switch "$action"
+                case rotate
+                    set _flag_replace 1
+                case snippet
+                    __opx_snippet $vault -k $service
+                    return
+                case '*'
+                    return 1
+            end
+        end
+    end
+
+    # Forwarded to opx sa; -v and -S are fixed by agent (read-only, both stores).
+    set -l pass -s $save_vault -i $item
+    set -q _flag_copy; and set -a pass -c
     set -q _flag_yes; and set -a pass -y
     set -q _flag_dry_run; and set -a pass -n
     set -q _flag_replace; and set -a pass -r

@@ -110,11 +110,15 @@ One-step agent setup:
   4. verify a headless read            (opx get --as)
   5. print instructions for the agent  (opx snippet)
 
-With no VAULT, pick one with fzf (type a new name to create it).
+With no VAULT, pick one with fzf (type a new name to create it). If VAULT
+is already set up, choose rotate / snippet / cancel (headless: error; use -r).
 
   -m, --move ITEM          item to move into VAULT (repeatable)
   -e, --expires DURATION   token lifetime (default: 30d)
   -k, --keychain SERVICE   Keychain service / SA name (default: VAULT-op-sa)
+  -s, --save-vault VAULT   vault for the backup token item (default: \$OPX_VAULT or Dev)
+  -i, --item NAME          title for the backup token item (default: SERVICE)
+  -c, --copy               also copy the token
   -r, --replace            rotate: mint a new token, overwrite stored copies
   -y, --yes                skip confirmation
   -n, --dry-run            show the plan; change nothing
