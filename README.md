@@ -28,6 +28,7 @@ Conventions, same for every command:
 
 - **Pickers**: leave out a required argument in an interactive shell and fzf picks it (items across all vaults, vaults, fields, Keychain tokens). `opx set` and `opx agent` also accept a typed new name. Scripts and agents never see a picker; they get a usage error (exit 2).
 - **Flags**: `-v` vault, `-f` field, `-c` copy, `-k` Keychain service, `-e` expiry, `-r` replace, `-y` yes, `-n` dry run, `-h` help. `opx mv` uses `--to`/`--from`; `opx set` uses `--category`.
+- **Fields**: `opx set ITEM -f a -f b -f region=us-east-1` prompts (masked) for `a` and `b` and stores `region` as plain text. `opx snippet` exports every field, as `ITEM_FIELD` variables for multi-field items.
 - **Defaults**: vault `$OPX_VAULT`, else `Dev`; new items are API Credentials; the field is the item's first concealed field.
 - **Output**: values go to stdout, everything else to stderr as `opx CMD: …`. `-h` prints to stdout.
 - **Completion**: everything tab-completes (vaults, items, fields, `VAULT:PERMS` grants, Keychain services). Lists are cached for 5 minutes and refreshed after writes.

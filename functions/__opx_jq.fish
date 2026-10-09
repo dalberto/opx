@@ -3,6 +3,7 @@
 function __opx_jq --description "Shared jq defs for opx field handling"
     echo -n 'def concealed: [.fields[]? | select(.type == "CONCEALED")]; '\
 'def readable: concealed | map(select((.value // "") != "")); '\
+'def exported: [.fields[]? | select((.value // "") != "" and (.type == "CONCEALED" or (.type == "STRING" and .id != "notesPlain")))]; '\
 'def field($f): if $f == "" then readable | first '\
 'else [.fields[]? | select(.id == $f or .label == $f)] | first end; '
 end

@@ -26,7 +26,9 @@ function __opx_snippet --description "Print agent instructions for reading a vau
     set -l rows (op item list --vault $vault --format json \
         | jq -c --args '[.[] | select(($ARGS.positional | length) == 0 or (.title | IN($ARGS.positional[])))]' $names \
         | op item get - --format json \
-        | jq -r (__opx_jq)'"\(.title)\t\(readable | first | .label // "")"')
+        | jq -r (__opx_jq)'.title as $t | exported as $e
+            | if ($e | length) == 0 then "\($t)\t\t0"
+              else $e[] | "\($t)\t\(.label)\t\($e | length)" end')
     or begin
         __opx_err snippet "can't read $vault as $service (expired or revoked token?)"
         return 1
@@ -45,7 +47,7 @@ function __opx_snippet --description "Print agent instructions for reading a vau
         if string match -q '*/*' -- $kv[1]
             __opx_err snippet "skipped '$kv[1]': '/' in name can't be addressed by op://"
         else if test -z "$kv[2]"
-            __opx_err snippet "skipped '$kv[1]': no concealed field with a value"
+            __opx_err snippet "skipped '$kv[1]': no fields with a value"
         else if string match -q '*/*' -- $kv[2]
             __opx_err snippet "skipped '$kv[1]': field '$kv[2]' has '/' in its name"
         else if string match -q -r "'.*\"|\".*'" -- "$kv[1]$kv[2]"
@@ -54,8 +56,10 @@ function __opx_snippet --description "Print agent instructions for reading a vau
             set -l ref "op://$vault/$kv[1]/$kv[2]"
             set -a refs $ref
             set -a reads "op read '"(string replace -a "'" "'\\''" -- $ref)"'"
-            set -l var (string replace -r -- "^\Q$vault\E[-_ ]+" '' $kv[1] \
-                | string upper | string replace -r -a '[^A-Z0-9]+' _ | string trim -c _)
+            # Single-field item: name after the item. Multi-field: ITEM_FIELD.
+            set -l stem (string replace -r -- "^\Q$vault\E[-_ ]+" '' $kv[1])
+            test "$kv[3]" -gt 1; and set stem "$stem $kv[2]"
+            set -l var (string upper -- $stem | string replace -r -a '[^A-Z0-9]+' _ | string trim -c _)
             string match -q -r '^[0-9]' -- $var; and set var _$var
             test -n "$var"; or set var SECRET
             set -l base $var

@@ -25,25 +25,30 @@ scripts and agents get a usage error instead. Default vault: \$OPX_VAULT,
 else Dev. Requires op and jq; fzf optional."
 
         case set
-            set text "usage: opx set [ITEM] [-v VAULT] [-f FIELD] [--category CATEGORY]
+            set text "usage: opx set [ITEM] [-v VAULT] [-f FIELD[=VALUE]]... [--category CATEGORY]
 abbr: opset
 
-Prompt (masked) for a secret and store it in ITEM. Creates the item if
-missing; otherwise sets FIELD, adding it if absent. The secret reaches op
-as JSON on stdin, never argv or history.
+Store secrets in ITEM. Creates the item if missing; otherwise updates the
+given fields, adding any that are absent. Masked values reach op as JSON on
+stdin, never argv or history.
+
+  -f FIELD         prompt (masked) for FIELD; stored concealed
+  -f FIELD=VALUE   store VALUE as plain text (for non-secrets like a region)
+  (no -f)          prompt for the item's first concealed field
 
 With no ITEM, pick one with fzf (type a new name to create it).
 
   -v, --vault VAULT        vault (default: \$OPX_VAULT or Dev; picker: all)
-  -f, --field FIELD        field label or id (default: first concealed field)
+  -f, --field FIELD[=VAL]  field to set; repeatable (see above)
       --category CATEGORY  category for new items (default: API Credential)
   -h, --help               show this help
 
 examples:
   opx set openai-api-key
+  opx set my-agents-aws -v my-agents -f access-key-id -f secret-access-key -f region=us-east-1
   opx set stripe -f secret-key -v Production
 
-see also: opx get"
+see also: opx get, opx snippet"
 
         case get
             set text "usage: opx get [ITEM] [-v VAULT] [-f FIELD] [-c] [-a SERVICE]
@@ -138,14 +143,16 @@ see also: opx snippet, opx run, opx token, opx sa"
 abbr: opsnippet
 
 Print markdown instructions an agent can follow to read VAULT's secrets
-headlessly: token from the Keychain, one op:// reference per item. Items are
-read as the service account, so only what the agent can access is listed;
-items without a concealed value or with '/' in the name are skipped.
+headlessly: token from the Keychain, one op:// reference per field. Every
+concealed field and plain-text field with a value is included (notes aside).
+Items are read as the service account, so only what the agent can access is
+listed; items with no values or with '/' in the name are skipped.
 
 --env switches to an env file of op:// references (VAR=op://...; no secrets,
 safe to commit) plus an `op run --env-file` command, so secrets reach the
 agent's command as environment variables and never appear in its output.
-Variable names come from item titles, minus a leading vault name.
+Variable names come from item titles minus a leading vault name; items with
+several fields get ITEM_FIELD (my-agents-aws → AWS_ACCESS_KEY_ID, AWS_REGION).
 
 With no VAULT, pick from vaults that have a Keychain token.
 
