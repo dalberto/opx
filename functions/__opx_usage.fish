@@ -25,52 +25,67 @@ scripts and agents get a usage error instead. Default vault: \$OPX_VAULT,
 else Dev. Requires op and jq; fzf optional."
 
         case set
-            set text "usage: opx set [ITEM] [-v VAULT] [-f FIELD[=VALUE]]... [--category CATEGORY]
+            set text "usage: opx set [ITEM] [-v VAULT] [-f FIELD[=VALUE]]... [-P | -g [--length N]] [--category C]
 abbr: opset
 
 Store secrets in ITEM. Creates the item if missing; otherwise updates the
 given fields, adding any that are absent. Masked values reach op as JSON on
-stdin, never argv or history.
+stdin, never argv or history. In a terminal, each value is confirmed by its
+last 4 characters (and the value it replaces).
 
   -f FIELD         prompt (masked) for FIELD; stored concealed
   -f FIELD=VALUE   store VALUE as plain text (for non-secrets like a region)
   (no -f)          prompt for the item's first concealed field
 
-With no ITEM, pick one with fzf (type a new name to create it).
+ITEM can be a title, an item id, or an op://vault/item/field reference. A
+title with no exact match creates a new item; interactively, similar items
+are offered first. With no ITEM, pick with fzf.
 
-  -v, --vault VAULT        vault (default: \$OPX_VAULT or Dev; picker: all)
+  -v, --vault VAULT        vault (default: \$OPX_VAULT or Dev)
   -f, --field FIELD[=VAL]  field to set; repeatable (see above)
+  -P, --paste              take the value from the clipboard, then clear it
+                           (one masked field)
+  -g, --generate           generate random values instead of prompting
+      --length N           generated length (default: 32)
       --category CATEGORY  category for new items (default: API Credential)
   -h, --help               show this help
 
 examples:
-  opx set openai-api-key
+  opx set openai-api-key -P
   opx set my-agents-aws -v my-agents -f access-key-id -f secret-access-key -f region=us-east-1
-  opx set stripe -f secret-key -v Production
+  opx set db -f password -g --length 40
 
 see also: opx get, opx snippet"
 
         case get
-            set text "usage: opx get [ITEM] [-v VAULT] [-f FIELD] [-c] [-a SERVICE]
+            set text "usage: opx get [ITEM] [-v VAULT] [-f FIELD] [-c|-p] [-a SERVICE] [--env [-- CMD...]]
 abbr: opget
 
-Print a secret from ITEM to stdout.
+Read a secret from ITEM. In a terminal it's copied to the clipboard (cleared
+after \$OPX_CLIP_SECONDS, default 45, unless you copied something else);
+piped or captured with (…), it's printed.
 
-With no ITEM, pick one with fzf; if it has several concealed fields and no
--f, pick the field too.
+ITEM can be a title, part of a title (if unique), an item id, or an
+op://vault/item/field reference. With no ITEM, or an ambiguous one, pick
+with fzf; if the item has several concealed fields and no -f, pick the field.
 
-  -v, --vault VAULT    vault (default: \$OPX_VAULT or Dev; picker: all)
+  -v, --vault VAULT    vault (default: \$OPX_VAULT or Dev; searches all
+                       vaults when no exact match there)
   -f, --field FIELD    field label or id (default: first concealed field
                        with a value)
-  -c, --copy           copy to clipboard (no trailing newline) instead
+  -c, --copy           always copy
+  -p, --print          always print
   -a, --as SERVICE     read as the service account whose token is in
                        Keychain SERVICE (headless, no biometric prompt)
+      --env -- CMD     run CMD with every field as an environment variable
+                       (names as in opx snippet --env); without CMD, list them
   -h, --help           show this help
 
 examples:
+  opx get openai                                  # partial name, copies
   set -x OPENAI_API_KEY (opx get openai-api-key)
-  opx get -c
-  opx get slack-webhook -v my-agents --as my-agents-op-sa
+  opx get op://my-agents/aws/secret-access-key -p
+  opx get my-agents-aws -v my-agents --env -- aws s3 ls
 
 see also: opx set, opx token"
 

@@ -156,7 +156,7 @@ Created: "(date +%F)" via opx sa"
         __opx_err sa "SAVE FAILED ("(string join ', ' $failed)") — token is on your clipboard; store it now"
         return 1
     end
-    set -q _flag_copy; and printf %s $token | pbcopy
+    set -q _flag_copy; and printf %s $token | __opx_copy_secret >/dev/null
     __opx_list --flush
     __opx_err sa "saved to "(string join ', ' $saved)(set -q _flag_copy; and echo " (copied)"; or echo "")
     if test (count $failed) -gt 0

@@ -32,7 +32,12 @@ for sub in set get
     complete -c opx -n "__opx_using $sub; and __opx_npos 1" -a '(__opx_complete items)'
 end
 complete -c opx -n '__opx_using set' -l category -x -a '(__opx_complete categories)' -d 'Category for new items'
-complete -c opx -n '__opx_using get' -s c -l copy -d 'Copy instead of printing'
+complete -c opx -n '__opx_using get' -s c -l copy -d 'Always copy'
+complete -c opx -n '__opx_using get' -s p -l print -d 'Always print'
+complete -c opx -n '__opx_using get' -l env -d 'Run -- CMD with fields as env vars'
+complete -c opx -n '__opx_using set' -s P -l paste -d 'Value from clipboard (then cleared)'
+complete -c opx -n '__opx_using set' -s g -l generate -d 'Generate random values'
+complete -c opx -n '__opx_using set' -l length -x -a '16 24 32 40 64' -d 'Generated length (default: 32)'
 complete -c opx -n '__opx_using get' -s a -l as -x -a '(__opx_complete keychain)' -d 'Read as service account'
 
 # mv / vault
