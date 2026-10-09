@@ -61,6 +61,10 @@ Rotate before expiry with `opx agent my-agents -r`, then revoke the old service 
 
 Secrets never pass through argv or shell history: values travel to `op` as JSON on stdin and to the Keychain via `security -i`.
 
+## Agent skill
+
+`skills/opx/SKILL.md` teaches coding agents to read secrets headlessly and ask you for new ones with `opx set`. Install with [dotagents](https://github.com/getsentry/dotagents): `npx @sentry/dotagents add dalberto/opx opx`.
+
 ## Development
 
 Edit, push, then `fisher update dalberto/opx`. To try local changes without pushing:

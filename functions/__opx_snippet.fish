@@ -5,7 +5,13 @@ function __opx_snippet --description "Print agent instructions for reading a vau
 
     set -l vault $argv[1]
     if test -z "$vault"
-        __opx_can_pick; or begin; __opx_usage snippet --error; return 2; end
+        if not __opx_can_pick
+            __opx_usage snippet --error
+            set -l av (__opx_list agent-vaults | cut -f1)
+            test (count $av) -gt 0; or set av "none (run opx agent VAULT)"
+            __opx_err snippet "agent vaults: "(string join ', ' -- $av)
+            return 2
+        end
         set vault (__opx_list agent-vaults | __opx_pick vault "agent vaults (Keychain tokens)" | cut -f1)
         or begin
             __opx_list agent-vaults >/dev/null; or __opx_err snippet "no agent vaults yet; run opx agent VAULT"
