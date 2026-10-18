@@ -76,13 +76,15 @@ function __opx_agent --description "Set up a vault + read-only service account (
     set -q _flag_dry_run; and return 0
 
     set -l token (security find-generic-password -s $service -w)
-    set -l first (env OP_SERVICE_ACCOUNT_TOKEN=$token op item list --vault $vault --format json | jq -r '.[0].id // empty')
+    set -l first (env OP_SERVICE_ACCOUNT_TOKEN=$token op item list --vault $vault --format json | jq -er '.[0].id // ""')
     or begin
         __opx_err agent "VERIFY FAILED: can't list $vault as $service"
         return 1
     end
     if test -z "$first"
         __opx_err agent "$vault is empty; verified access only"
+        __opx_err agent "next: opx set $vault-SERVICE -v $vault, then opx snippet $vault"
+        return 0
     else if env OP_SERVICE_ACCOUNT_TOKEN=$token op item get $first --vault $vault >/dev/null
         __opx_err agent "verified headless read of $vault as $service"
     else

@@ -29,15 +29,20 @@ function __opx_snippet --description "Print agent instructions for reading a vau
         __opx_err snippet "no Keychain token '$service'; run opx agent $vault first (or pass -k SERVICE)"
         return 1
     end
-    set -l rows (op item list --vault $vault --format json \
-        | jq -c --args '[.[] | select(($ARGS.positional | length) == 0 or (.title | IN($ARGS.positional[])))]' $names \
-        | op item get - --format json \
-        | jq -r (__opx_jq)'.title as $t | exported as $e
-            | if ($e | length) == 0 then "\($t)\t\t0"
-              else $e[] | "\($t)\t\(.label)\t\($e | length)" end')
+    # jq -e fails on empty input, i.e. when op item list printed nothing.
+    set -l items (op item list --vault $vault --format json \
+        | jq -ec --args '[.[] | select(($ARGS.positional | length) == 0 or (.title | IN($ARGS.positional[])))]' $names)
     or begin
         __opx_err snippet "can't read $vault as $service (expired or revoked token?)"
         return 1
+    end
+    # op item get - wants a vault when piped nothing, so skip it for no items.
+    set -l rows
+    if test "$items" != '[]'
+        set rows (printf '%s\n' $items | op item get - --format json \
+            | jq -r (__opx_jq)'.title as $t | exported as $e
+                | if ($e | length) == 0 then "\($t)\t\t0"
+                  else $e[] | "\($t)\t\(.label)\t\($e | length)" end')
     end
 
     # One op:// reference per usable item; sh-quoted for `op read`, and an
@@ -85,7 +90,11 @@ function __opx_snippet --description "Print agent instructions for reading a vau
         contains -- $n $found; or __opx_err snippet "'$n' not found in $vault (or not readable as $service)"
     end
     if test (count $refs) -eq 0
-        __opx_err snippet "nothing usable in $vault"
+        if test (count $found) -eq 0; and test (count $names) -eq 0
+            __opx_err snippet "$vault is empty; add secrets with opx set $vault-SERVICE -v $vault"
+        else
+            __opx_err snippet "nothing usable in $vault"
+        end
         return 1
     end
 
