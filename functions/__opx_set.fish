@@ -92,7 +92,9 @@ function __opx_set --description "Store a masked secret in a 1Password item fiel
 
     # Concealed values arrive as JSON strings through a fifo, in prompt order.
     # Each update sets the matching field (by id or label), else the first
-    # concealed field for the default '', else appends a new field.
+    # concealed field for the default '', else appends a new field. On a new
+    # item, an unmatched masked field fills the template's empty primary
+    # password (Password/Login items require it, and 1Password pins its label).
     set -l prog '
         (reduce range(0; $spec | length) as $k ({u: [], n: 0};
             if $spec[$k].type == "CONCEALED"
@@ -104,7 +106,12 @@ function __opx_set --description "Store a masked secret in a 1Password item fiel
                  | select(if $x.label == "" then .value.type == "CONCEALED"
                           else .value.id == $x.label or .value.label == $x.label end)
                  | .key] | first) as $i
+            | ([$fs | to_entries[]
+                 | select($new and $x.type == "CONCEALED" and .value.purpose == "PASSWORD"
+                          and (.value.value // "") == "")
+                 | .key] | first) as $p
             | if $i != null then .fields[$i].value = $x.value
+              elif $p != null then .fields[$p].value = $x.value
               elif $x.label == "" then error("no concealed field; pass -f FIELD")
               else .fields = $fs + [{label: $x.label, type: $x.type, value: $x.value}] end)'
     set -l secret_json (begin
@@ -115,12 +122,21 @@ function __opx_set --description "Store a masked secret in a 1Password item fiel
 
     if test -n "$item"
         printf '%s' $item \
-            | jq --argjson spec $spec --slurpfile S (printf '%s\n' $secret_json | psub -F) $prog \
+            | jq --argjson new false --argjson spec $spec --slurpfile S (printf '%s\n' $secret_json | psub -F) $prog \
             | op item edit (printf '%s' $item | jq -r .id) --vault $vault >/dev/null
     else
         # New item: fill fields, then drop the template's empty ones.
-        op item template get $category \
-            | jq --arg t $name --argjson spec $spec --slurpfile S (printf '%s\n' $secret_json | psub -F) \
+        set -l template (op item template get $category | string collect); or begin
+            __opx_err set "unknown category '$category'"
+            return 2
+        end
+        set -l primary (printf '%s' $template | jq -r '.fields[]? | select(.purpose == "PASSWORD") | .label')
+        set -l named (string match -v -- '' $masked)
+        if test -n "$primary"; and test -n "$named[1]"; and test "$named[1]" != "$primary"
+            __opx_err set "$named[1]: stored as '$primary' ($category items fix that label)"
+        end
+        printf '%s' $template \
+            | jq --argjson new true --arg t $name --argjson spec $spec --slurpfile S (printf '%s\n' $secret_json | psub -F) \
                 ".title = \$t | $prog | .fields |= map(select((.value // \"\") != \"\"))" \
             | op item create --vault $vault - >/dev/null
     end
