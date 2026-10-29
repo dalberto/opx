@@ -10,7 +10,7 @@ function __opx_get --description "Read a secret from a 1Password item field"
     set -q _flag_help; and __opx_usage get; and return 0
 
     if set -q _flag_as
-        set -lx OP_SERVICE_ACCOUNT_TOKEN (security find-generic-password -s $_flag_as -w 2>/dev/null)
+        set -fx OP_SERVICE_ACCOUNT_TOKEN (__opx_token $_flag_as); or return 1
         if test -z "$OP_SERVICE_ACCOUNT_TOKEN"
             __opx_err get "no Keychain token '$_flag_as'"
             return 1

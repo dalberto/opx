@@ -1,6 +1,6 @@
 ---
 name: opx
-description: Use whenever a task needs a secret or credential (API key, token, password, webhook URL, cloud keys) on the user's Mac, needs the user to store one, or touches 1Password, `op`, `op://` references, OP_SERVICE_ACCOUNT_TOKEN, or `opx`. Covers reading secrets headlessly through a read-only 1Password service account and asking the user to add secrets with `opx set`.
+description: Use whenever a task needs a secret or credential (API key, token, password, webhook URL, cloud keys) on macOS or Linux, needs the user to store one, or touches 1Password, `op`, `op://` references, OP_SERVICE_ACCOUNT_TOKEN, or `opx`. Covers reading secrets headlessly through a read-only 1Password service account and asking the user to add secrets with `opx set`.
 ---
 
 # opx: secrets via 1Password
@@ -10,9 +10,16 @@ description: Use whenever a task needs a secret or credential (API key, token, p
 ## Rules
 
 - **Never** ask the user to paste a secret into chat. Never print, log, echo, commit or write secret values. `op://` references are not secrets and are fine to write.
-- **Stay headless.** Only call `op`/`opx` with `OP_SERVICE_ACCOUNT_TOKEN` set from the Keychain, as the snippet shows. Any other `op` call prompts the user for Touch ID. Never work around a failure that way.
+- **Stay headless.** Only call `op`/`opx` with `OP_SERVICE_ACCOUNT_TOKEN` set from Keychain (macOS) or a provisioned token file (Linux), as the snippet shows. Any other `op` call prompts the user for Touch ID. Never work around a failure that way.
 - **Inject, don't read.** Prefer `op run --env-file …` (from `opx snippet --env`), so values reach the command's environment and are masked in output. Avoid `op read` into variables or stdout.
 - Steps marked **human** need the user's own 1Password session. Hand them the exact command, then wait.
+
+## Linux
+
+- opx reads the token from a file instead of the Keychain: `~/.config/opx/tokens/<vault>-op-sa` (or `$XDG_CONFIG_HOME/opx/tokens/`, or `$OPX_TOKEN_DIR`). The directory must be mode 0700 and the file 0600, owned by the user running opx.
+- Run commands as `fish -c 'opx run <vault>-op-sa -- op run --env-file <file> -- <command>'`.
+- If opx refuses the token file (missing, wrong permissions, malformed), tell the user the error. Don't print the file, change its permissions, or try another way to sign in.
+- `opx agent` and `opx sa` don't work on Linux. Minting and rotating happen on the user's Mac; they then copy the new token over.
 
 ## Getting access
 
