@@ -40,10 +40,19 @@ function __opx_list --description "List opx data as TSV (value<TAB>description),
         case categories
             set out (op item template list --format json 2>/dev/null | jq -r '.[] | "\(.name)\t"')
         case keychain
-            # Metadata only; no secrets are unlocked.
-            set out (security dump-keychain 2>/dev/null \
+            # Linux discovers names only; never read tokens for completion.
+            if test (uname -s) = Linux
+                set -l dir (__opx_token_dir)
+                for file in "$dir"/*
+                    test -f "$file"; or continue
+                    set -a out (path basename -- "$file")\t"token file"
+                end
+            else
+                # Metadata only; no secrets are unlocked.
+                set out (security dump-keychain 2>/dev/null \
                 | string match -r -g '"svce"<blob>="([^"]*op-sa[^"]*)"' | sort -u \
                 | string replace -r '$' '\tKeychain token')
+            end
         case '*'
             echo "__opx_list: unknown kind '$argv[1]'" >&2
             return 2

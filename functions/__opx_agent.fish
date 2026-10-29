@@ -3,6 +3,10 @@ function __opx_agent --description "Set up a vault + read-only service account (
         's/save-vault=' 'i/item=' c/copy r/replace y/yes n/dry-run -- $argv
     or return 2
     set -q _flag_help; and __opx_usage agent; and return 0
+    if test (uname -s) = Linux
+        __opx_err agent "provision or rotate token files through your administrator; agent/sa setup requires macOS"
+        return 1
+    end
 
     set -l vault $argv[1]
     if test -z "$vault"

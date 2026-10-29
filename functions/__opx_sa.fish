@@ -3,6 +3,10 @@ function __opx_sa --description "Mint a 1Password service account token and save
         's/save-vault=' 'i/item=' 'S/store=' 'k/keychain=' r/replace c/copy y/yes n/dry-run -- $argv
     or return 2
     set -q _flag_help; and __opx_usage sa; and return 0
+    if test (uname -s) = Linux
+        __opx_err sa "provision or rotate token files through your administrator; agent/sa setup requires macOS"
+        return 1
+    end
     if test (count $argv) -ne 1
         __opx_usage sa --error
         return 2

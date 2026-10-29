@@ -24,9 +24,10 @@ function __opx_snippet --description "Print agent instructions for reading a vau
 
     # Read as the service account: no biometric prompt, and the result reflects
     # exactly what the agent will be able to read.
-    set -lx OP_SERVICE_ACCOUNT_TOKEN (security find-generic-password -s $service -w 2>/dev/null)
-    if test -z "$OP_SERVICE_ACCOUNT_TOKEN"
-        __opx_err snippet "no Keychain token '$service'; run opx agent $vault first (or pass -k SERVICE)"
+    if not set -lx OP_SERVICE_ACCOUNT_TOKEN (__opx_token $service); or test -z "$OP_SERVICE_ACCOUNT_TOKEN"
+        if test (uname -s) = Darwin
+            __opx_err snippet "no Keychain token '$service'; run opx agent $vault first (or pass -k SERVICE)"
+        end
         return 1
     end
     # jq -e fails on empty input, i.e. when op item list printed nothing.
@@ -96,6 +97,53 @@ function __opx_snippet --description "Print agent instructions for reading a vau
             __opx_err snippet "nothing usable in $vault"
         end
         return 1
+    end
+
+    if test (uname -s) = Linux
+        set -l quoted_service (string escape -- "$service")
+        set -l file $vault.env
+        set -q _flag_out; and set file $_flag_out
+        set -l envfile "# 1Password references for $vault (no secrets; safe to commit)" $envs
+        set -l out "## Secrets ($vault)
+
+The read-only service-account token is provisioned in a user-owned 0600 file
+under `"(__opx_token_dir)"` (directory mode 0700). `opx run` validates it
+before launching commands. Requires Fish, opx and the 1Password CLI.
+Never print, log or copy token or secret values."
+        if set -q _flag_env
+            if set -q _flag_out
+                printf '%s\n' $envfile >"$file"; or return 1
+                set -a out "References are in `$file` (op:// references only, no secrets)."
+            else
+                set -a out "Save as `$file` (op:// references only, no secrets):
+
+```sh
+"(string join \n -- $envfile | string collect)"
+```"
+            end
+            set -a out "Run in Fish (from another shell, use `fish -c '…'`):
+
+```fish
+opx run $quoted_service -- op run --env-file "(string escape -- "$file")" -- <command>
+```
+
+Available: "(string join ', ' -- $vars)
+        else
+            set -a out "Run in Fish:
+
+```fish
+opx run $quoted_service -- $reads[1]
+```
+
+References:
+"(string join \n -- $refs)
+        end
+        if set -q _flag_copy
+            __opx_err snippet "clipboard output is macOS-only; omit --copy"
+            return 1
+        end
+        printf '%s\n' $out
+        return 0
     end
 
     set -l token_cmd "\$(security find-generic-password -s $service -w)"

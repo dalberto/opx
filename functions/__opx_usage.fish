@@ -76,7 +76,7 @@ with fzf; if the item has several concealed fields and no -f, pick the field.
   -c, --copy           always copy
   -p, --print          always print
   -a, --as SERVICE     read as the service account whose token is in
-                       Keychain SERVICE (headless, no biometric prompt)
+                       Keychain SERVICE (token file on Linux; headless)
       --env -- CMD     run CMD with every field as an environment variable
                        (names as in opx snippet --env); without CMD, list them
   -h, --help           show this help
@@ -158,7 +158,8 @@ see also: opx snippet, opx run, opx token, opx sa"
 abbr: opsnippet
 
 Print markdown instructions an agent can follow to read VAULT's secrets
-headlessly: token from the Keychain, one op:// reference per field. Every
+headlessly: token from the Keychain (a token file on Linux), one op://
+reference per field. Every
 concealed field and plain-text field with a value is included (notes aside).
 Items are read as the service account, so only what the agent can access is
 listed; items with no values or with '/' in the name are skipped.
@@ -169,7 +170,8 @@ agent's command as environment variables and never appear in its output.
 Variable names come from item titles minus a leading vault name; items with
 several fields get ITEM_FIELD (my-agents-aws → AWS_ACCESS_KEY_ID, AWS_REGION).
 
-With no VAULT, pick from vaults that have a Keychain token.
+With no VAULT, pick from vaults that have a stored token.
+On Linux, tokens are files; see opx help token.
 
       --env                env-file format (better for many secrets)
   -o, --out FILE           with --env: write the env file to FILE (default
@@ -224,6 +226,12 @@ abbr: opsatoken
 
 Print the service account token stored in Keychain SERVICE.
 
+On Linux, read it from the file SERVICE in \$OPX_TOKEN_DIR, else
+\$XDG_CONFIG_HOME/opx/tokens, else ~/.config/opx/tokens. The directory
+must be mode 0700 and the file 0600, both owned by you, with the token on
+one line; symlinks, other modes and malformed files are refused. Mint and
+rotate tokens on macOS (opx agent, opx sa); they refuse on Linux.
+
 With no SERVICE, pick one with fzf.
 
   -h, --help   show this help
@@ -237,8 +245,9 @@ see also: opx run, opx agent"
             set text "usage: opx run [SERVICE] -- CMD [ARGS...]
 abbr: opsarun
 
-Run CMD with OP_SERVICE_ACCOUNT_TOKEN from Keychain SERVICE, so op calls
-inside it run headlessly as the service account.
+Run CMD with OP_SERVICE_ACCOUNT_TOKEN from Keychain SERVICE (on Linux,
+the token file SERVICE; see opx help token), so op calls inside it run
+headlessly as the service account.
 
 With no SERVICE (CMD right after --), pick one with fzf.
 

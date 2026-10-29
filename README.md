@@ -6,7 +6,7 @@
 fisher install dalberto/opx
 ```
 
-Requires the [1Password CLI](https://developer.1password.com/docs/cli/) (`op`), `jq`, and macOS (Keychain, `pbcopy`). `fzf` is optional, for interactive vault picking.
+Requires the [1Password CLI](https://developer.1password.com/docs/cli/) (`op`), `jq`, and macOS (Keychain, `pbcopy`) or Linux (headless reads only; see [Linux](#linux)). `fzf` is optional, for interactive vault picking.
 
 ## Commands
 
@@ -60,6 +60,23 @@ No prompts: `security` created the Keychain item, so `security` reads it silentl
 Rotate before expiry with `opx agent my-agents -r`, then revoke the old service account in the 1Password web app (Developer → Service Accounts). The CLI can't list or revoke service accounts.
 
 Secrets never pass through argv or shell history: values travel to `op` as JSON on stdin and to the Keychain via `security -i`.
+
+## Linux
+
+On Linux, opx reads service-account tokens from files instead of the Keychain. `opx token`, `opx run`, `opx get --as` and `opx snippet` work headlessly. `opx agent` and `opx sa` refuse: mint and rotate tokens on a Mac, then copy the new token over. Clipboard options are macOS-only.
+
+Requires fish, `op` and `jq`. opx is a fish function, so from other shells call it as `fish -c 'opx …'`.
+
+Each token lives in its own file, named after its service (`VAULT-op-sa`), in `$OPX_TOKEN_DIR`, else `$XDG_CONFIG_HOME/opx/tokens`, else `~/.config/opx/tokens`. The directory must be mode `0700` and each file `0600`, both owned by you; the file holds the token on a single line. opx refuses symlinks, any other ownership or mode, and empty or malformed files, and never falls back to an interactive sign-in.
+
+```fish
+mkdir -p -m 700 ~/.config/opx/tokens
+# write the token to ~/.config/opx/tokens/my-agents-op-sa, then:
+chmod 600 ~/.config/opx/tokens/my-agents-op-sa
+
+opx snippet my-agents --env -o my-agents.env
+opx run my-agents-op-sa -- op run --env-file my-agents.env -- <command>
+```
 
 ## Agent skill
 
